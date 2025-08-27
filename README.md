@@ -35,7 +35,7 @@ O‘zgarishlar:
 - **Lifecycle Service Binding** (`lifecycleScope`)
 - **libusb** va **libuvc** (UVC camera access uchun, C++/JNI orqali)
 - [AndroidUSBCamera](https://github.com/saki4510t/UVCCamera) OTG orqali kamera oqimini olish uchun
-- **RTMP** protokoli (video oqimini uzatish uchun)
+- **RTMP** protokoli[RTMP](https://github.com/pedroSG94/RootEncoder) (video oqimini uzatish uchun)
 
 ---
 
