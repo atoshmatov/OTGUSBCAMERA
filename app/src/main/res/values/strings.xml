@@ -1,0 +1,8 @@
+<resources>
+  <string name="app_name">OTG USB CAMERA</string>
+  <string name="button_stop_service">Stop service</string>
+  <string name="button_start_service">Start service</string>
+  <string name="button_stop_stream">Stop stream</string>
+  <string name="button_start_stream">Start stream</string>
+  <string name="toast_missing_stream_url">Please configure the Stream URL</string>
+</resources>
