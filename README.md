@@ -34,6 +34,7 @@ O‘zgarishlar:
 - **Foreground Service** (background streaming uchun)
 - **Lifecycle Service Binding** (`lifecycleScope`)
 - **libusb** va **libuvc** (UVC camera access uchun, C++/JNI orqali)
+- [AndroidUSBCamera](https://github.com/saki4510t/UVCCamera) OTG orqali kamera oqimini olish uchun
 - **RTMP** protokoli (video oqimini uzatish uchun)
 
 ---
