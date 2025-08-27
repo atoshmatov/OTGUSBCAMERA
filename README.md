@@ -69,6 +69,6 @@ Ilova quyidagi ruxsatlarni talab qiladi:
 - "Stop Stream" tugmasi orqali oqimni to‘xtatish mumkin.
 
 ## 📚 Asosiy manbalar
-Ushbu loyiha alejandrorosas/android-uvc-rtmp-stream
+Ushbu loyiha [android-uvc-rtmp-stream (alejandrorosas)](https://github.com/alejandrorosas/android-uvc-rtmp-stream.git)
 kutubxonasi asosida yozilgan va qayta ishlab chiqilgan.
 
