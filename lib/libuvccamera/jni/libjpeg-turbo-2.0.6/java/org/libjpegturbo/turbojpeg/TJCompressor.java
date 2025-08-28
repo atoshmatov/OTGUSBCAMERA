@@ -29,9 +29,9 @@
 
 package org.libjpegturbo.turbojpeg;
 
-import java.awt.image.*;
-import java.nio.*;
-import java.io.*;
+import java.awt.image.BufferedImage;
+import java.io.Closeable;
+import java.nio.ByteOrder;
 
 /**
  * TurboJPEG compressor

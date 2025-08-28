@@ -32,13 +32,12 @@
  * images using the TurboJPEG Java API
  */
 
-import java.io.*;
-import java.awt.*;
-import java.awt.image.*;
-import java.nio.*;
-import javax.imageio.*;
-import javax.swing.*;
 import org.libjpegturbo.turbojpeg.*;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.nio.ShortBuffer;
 
 
 @SuppressWarnings("checkstyle:JavadocType")

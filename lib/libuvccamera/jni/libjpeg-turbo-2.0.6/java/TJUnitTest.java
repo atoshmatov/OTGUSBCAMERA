@@ -30,12 +30,13 @@
  * This program tests the various code paths in the TurboJPEG JNI Wrapper
  */
 
-import java.io.*;
-import java.util.*;
-import java.awt.image.*;
-import javax.imageio.*;
-import java.nio.*;
 import org.libjpegturbo.turbojpeg.*;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.ByteOrder;
+import java.util.Arrays;
+import java.util.Random;
 
 @SuppressWarnings("checkstyle:JavadocType")
 final class TJUnitTest {

@@ -23,8 +23,6 @@
 
 package com.serenegiant.usb;
 
-import static androidx.core.content.ContextCompat.registerReceiver;
-
 import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;

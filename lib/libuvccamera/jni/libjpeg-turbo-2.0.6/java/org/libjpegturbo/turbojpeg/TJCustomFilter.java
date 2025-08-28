@@ -28,8 +28,7 @@
 
 package org.libjpegturbo.turbojpeg;
 
-import java.awt.*;
-import java.nio.*;
+import java.nio.ShortBuffer;
 
 /**
  * Custom filter callback interface

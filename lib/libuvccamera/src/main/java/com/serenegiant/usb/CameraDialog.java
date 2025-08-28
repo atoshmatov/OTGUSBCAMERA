@@ -40,7 +40,6 @@ import android.widget.Button;
 import android.widget.CheckedTextView;
 import android.widget.Spinner;
 
-
 import java.util.ArrayList;
 import java.util.List;
 

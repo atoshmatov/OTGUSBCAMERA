@@ -6,19 +6,20 @@
     android:name="android.hardware.camera"
     android:required="false" />
 
-  <uses-permission android:name="android.permission.CAMERA" />
-
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-  <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <uses-permission android:name="android.permission.CAMERA" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
   <uses-permission android:name="android.permission.RECORD_AUDIO" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
-  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
-  <uses-permission android:name="android.permission.CAMERA" />
-  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
 
   <application
@@ -31,19 +32,28 @@
     android:roundIcon="@mipmap/ic_launcher_round"
     android:supportsRtl="true"
     android:theme="@style/Theme.OTGUSBCAMERA">
+
     <activity
       android:name=".ui.MainActivity"
       android:exported="true"
       android:theme="@style/Theme.OTGUSBCAMERA">
+
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
         <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
       </intent-filter>
+
       <meta-data
         android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
         android:resource="@xml/usb_device_filter" />
-    </activity>
 
+      <!--<receiver android:name=".UsbReceiver">
+        <intent-filter>
+          <action android:name="com.example.ACTION_USB_PERMISSION" />
+        </intent-filter>
+      </receiver>-->
+
+    </activity>
   </application>
 </manifest>

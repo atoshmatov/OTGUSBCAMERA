@@ -26,11 +26,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-import java.io.*;
-import java.awt.image.*;
-import javax.imageio.*;
-import java.util.*;
 import org.libjpegturbo.turbojpeg.*;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.util.Arrays;
+import java.util.Scanner;
 
 final class TJBench {
 
