@@ -45,10 +45,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.pedro.rtplibrary.view.OpenGlView
+import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import uz.toshmatov.strem_lib.StreamService
 
+/*
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModel()
@@ -65,6 +68,7 @@ class MainActivity : ComponentActivity() {
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(className: ComponentName, binder: IBinder) {
             val service = (binder as StreamService.LocalBinder).getService()
+            val streamFlow = binder.streamingFlow()
             mService = service
             isServiceBound = true
             viewModel.attachService(service)
@@ -80,6 +84,12 @@ class MainActivity : ComponentActivity() {
                             "Error binding view after service connected: ${e.message}"
                         )
                     }
+                }
+            }
+
+            lifecycleScope.launch {
+                streamFlow.collect { isStreaming ->
+                    viewModel.updateStreamingState(isStreaming)
                 }
             }
         }
@@ -175,71 +185,6 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             )
-
-                            /*holder.addCallback(
-                                object : SurfaceHolder.Callback {
-                                    override fun surfaceCreated(holder: SurfaceHolder) {
-                                        Log.d("MainActivity", "Surface created")
-                                        if (isServiceBound) {
-                                            mainHandler.post {
-                                                try {
-                                                    openGlViewRef.let {
-                                                        mService?.let {
-                                                            it.setView(openGlViewRef!!)
-                                                            it.startPreview()
-                                                        }
-                                                    }
-                                                } catch (e: Exception) {
-                                                    Log.e(
-                                                        "MainActivity",
-                                                        "Error on surfaceCreated bind: ${e.message}"
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    override fun surfaceChanged(
-                                        holder: SurfaceHolder,
-                                        format: Int,
-                                        width: Int,
-                                        height: Int
-                                    ) {
-                                        if (isServiceBound) {
-                                            mainHandler.post {
-                                                try {
-                                                    openGlViewRef.let {
-                                                        mService?.let {
-                                                            it.setView(openGlViewRef!!)
-                                                            it.startPreview()
-                                                        }
-                                                    }
-                                                } catch (e: Exception) {
-                                                    Log.e(
-                                                        "MainActivity",
-                                                        "Error on surfaceCreated bind: ${e.message}"
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    override fun surfaceDestroyed(holder: SurfaceHolder) {
-                                        Log.d("MainActivity", "Surface destroyed")
-                                        mainHandler.post {
-                                            try {
-                                                mService?.setView(applicationContext)
-                                                mService?.stopPreview()
-                                            } catch (e: Exception) {
-                                                Log.e(
-                                                    "MainActivity",
-                                                    "Error on surfaceDestroyed: ${e.message}"
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            )*/
                         }
                     },
                     modifier = Modifier
@@ -300,7 +245,10 @@ class MainActivity : ComponentActivity() {
                         .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .clickable {
-                            val endpoint = "rtmp://84.54.117.248:10005/live/stream1" // TODO
+                            val endpoint = "rtmp://84.54.117.248:10005/live/stream1"
+                            if (mService?.isStreaming == false) {
+                                Toast.makeText(this@MainActivity, "Camara not streaming", Toast.LENGTH_LONG).show()
+                            }
                             viewModel.onStreamControlButtonClick(endpoint)
                         }
                         .background(if (isStreaming) Color(0xFFE74C3C) else Color(0xFF155E95))
@@ -383,4 +331,277 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+*/
+
+class MainActivity : ComponentActivity() {
+
+    private val viewModel: MainViewModel by viewModel()
+
+    private var mService: StreamService? = null
+    private var openGlViewRef: OpenGlView? = null
+
+    private var isServiceBound = false
+    private var hasPermissions = false
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(className: ComponentName, binder: IBinder) {
+            val service = (binder as StreamService.LocalBinder).getService()
+            val streamFlow = binder.streamingFlow()
+
+            mService = service
+            isServiceBound = true
+            viewModel.attachService(service)
+
+            lifecycleScope.launch {
+                streamFlow.collect { isStreaming ->
+                    viewModel.updateStreamingState(isStreaming)
+                }
+            }
+
+            openGlViewRef?.let { view ->
+                lifecycleScope.launch {
+                    try {
+                        mService?.setView(view)
+                        mService?.startPreview()
+                    } catch (e: Exception) {
+                        Log.e(
+                            "MainActivity",
+                            "Error binding view after service connected: ${e.message}"
+                        )
+                    }
+                }
+            }
+        }
+
+        override fun onServiceDisconnected(name: ComponentName) {
+            viewModel.detachService()
+            mService = null
+            isServiceBound = false
+        }
+    }
+
+    private val requestPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+            val allGranted = result.values.all { it }
+            if (allGranted) {
+                hasPermissions = true
+                startAndBindService()
+            } else {
+                val permanentlyDenied = result.keys.any { permission ->
+                    !shouldShowRequestPermissionRationale(permission) &&
+                        ContextCompat.checkSelfPermission(
+                            this,
+                            permission
+                        ) != PackageManager.PERMISSION_GRANTED
+                }
+
+                if (permanentlyDenied) {
+                    Toast.makeText(
+                        this,
+                        "Permissions required, please enable them in Settings",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    openAppSettings()
+                } else {
+                    Toast.makeText(this, "Permissions denied!", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
+    private fun openAppSettings() {
+        val intent = Intent(
+            android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            android.net.Uri.fromParts("package", packageName, null)
+        )
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        hasPermissions = hasAllPermissions()
+        if (!hasPermissions) requestAllPermissions()
+
+        setContent {
+            val isStreaming by viewModel.isStreaming.collectAsStateWithLifecycle()
+            val lifecycleOwner = LocalLifecycleOwner.current
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF030303))
+                    .statusBarsPadding()
+                    .navigationBarsPadding(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Spacer(modifier = Modifier.weight(1f))
+
+                AndroidView(
+                    factory = { ctx ->
+                        OpenGlView(ctx).apply {
+                            openGlViewRef = this
+
+                            holder.addCallback(object : SurfaceHolder.Callback {
+                                override fun surfaceCreated(holder: SurfaceHolder) {
+                                    lifecycleScope.launch {
+                                        openGlViewRef?.let { view ->
+                                            mService?.setView(view)
+                                            mService?.startPreview()
+                                        }
+                                    }
+                                }
+
+                                override fun surfaceDestroyed(holder: SurfaceHolder) {
+                                    lifecycleScope.launch {
+                                        mService?.clearView()
+                                    }
+                                }
+
+                                override fun surfaceChanged(
+                                    holder: SurfaceHolder,
+                                    format: Int,
+                                    width: Int,
+                                    height: Int
+                                ) {
+                                }
+                            })
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .border(
+                            width = 1.dp,
+                            color = if (isStreaming) Color(0xFF08CB00) else Color(0xFFE74C3C),
+                        )
+                )
+
+                DisposableEffect(lifecycleOwner, mService, openGlViewRef) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        when (event) {
+                            Lifecycle.Event.ON_RESUME -> {
+                                lifecycleScope.launch {
+                                    openGlViewRef?.let { view ->
+                                        mService?.setView(view)
+                                        mService?.startPreview()
+                                    }
+                                }
+                            }
+
+                            Lifecycle.Event.ON_PAUSE -> {
+                                lifecycleScope.launch {
+                                    mService?.stopPreview()
+                                }
+                            }
+
+                            else -> {}
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose {
+                        lifecycleOwner.lifecycle.removeObserver(observer)
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            val endpoint = "rtmp://84.54.117.248:10005/live/stream1"
+                            if (mService?.isStreaming == false) {
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "Camera not streaming",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                            viewModel.onStreamControlButtonClick(endpoint)
+                        }
+                        .background(if (isStreaming) Color(0xFFE74C3C) else Color(0xFF155E95))
+                        .padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = if (isStreaming) "Stop Stream" else "Start Stream",
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+    }
+
+    private fun hasAllPermissions(): Boolean {
+        val permissions = mutableListOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.CAMERA,
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            permissions.add(Manifest.permission.FOREGROUND_SERVICE_CAMERA)
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        return permissions.all {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun requestAllPermissions() {
+        val permissions = mutableListOf(
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.CAMERA,
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            permissions.add(Manifest.permission.FOREGROUND_SERVICE_CAMERA)
+        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            permissions.add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        requestPermissionLauncher.launch(permissions.toTypedArray())
+    }
+
+    private fun startAndBindService() {
+        val intent = Intent(this, StreamService::class.java)
+        startForegroundService(intent)
+        bindService(
+            intent,
+            serviceConnection,
+            BIND_AUTO_CREATE
+        )
+    }
+
+    override fun onStart() {
+        super.onStart()
+        if (hasPermissions && !isServiceBound) startAndBindService()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (isServiceBound) {
+            unbindService(serviceConnection)
+            isServiceBound = false
+            viewModel.detachService()
+            mService = null
+        }
+    }
+}
+
 

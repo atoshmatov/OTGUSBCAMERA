@@ -54,7 +54,6 @@ class MainViewModel : ViewModel() {
     private var service: StreamService? = null
     private var streamCollectJob: Job? = null
 
-    /** Activity bind bo‘lganda chaqiriladi */
     fun attachService(streamService: StreamService) {
         service = streamService
         streamCollectJob?.cancel()
@@ -69,7 +68,13 @@ class MainViewModel : ViewModel() {
         streamCollectJob?.cancel()
         streamCollectJob = null
         service = null
+        _isStreaming.value = false
     }
+
+    fun updateStreamingState(isStreaming: Boolean) {
+        _isStreaming.value = isStreaming
+    }
+
 
     fun onStreamControlButtonClick(endpoint: String) {
         val s = service ?: return
