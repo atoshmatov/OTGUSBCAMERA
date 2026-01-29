@@ -30,9 +30,14 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -359,15 +364,16 @@ class MainActivity : ComponentActivity() {
             }
 
             openGlViewRef?.let { view ->
-                lifecycleScope.launch {
-                    try {
-                        mService?.setView(view)
-                        mService?.startPreview()
-                    } catch (e: Exception) {
-                        Log.e(
-                            "MainActivity",
-                            "Error binding view after service connected: ${e.message}"
-                        )
+                if (view.holder.surface.isValid) {
+                    lifecycleScope.launch {
+                        try {
+                            mService?.setView(view)
+                        } catch (e: Exception) {
+                            Log.e(
+                                "MainActivity",
+                                "Error binding view after service connected: ${e.message}"
+                            )
+                        }
                     }
                 }
             }
@@ -448,7 +454,6 @@ class MainActivity : ComponentActivity() {
                                     lifecycleScope.launch {
                                         openGlViewRef?.let { view ->
                                             mService?.setView(view)
-                                            mService?.startPreview()
                                         }
                                     }
                                 }
@@ -484,8 +489,9 @@ class MainActivity : ComponentActivity() {
                             Lifecycle.Event.ON_RESUME -> {
                                 lifecycleScope.launch {
                                     openGlViewRef?.let { view ->
-                                        mService?.setView(view)
-                                        mService?.startPreview()
+                                        if (view.holder.surface.isValid) {
+                                            mService?.setView(view)
+                                        }
                                     }
                                 }
                             }
@@ -507,21 +513,43 @@ class MainActivity : ComponentActivity() {
 
                 Spacer(modifier = Modifier.weight(1f))
 
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val sharedPrefs = remember { context.getSharedPreferences("stream_prefs", Context.MODE_PRIVATE) }
+                var rtmpUrl by remember { 
+                    mutableStateOf(sharedPrefs.getString("last_url", "rtmp://172.20.8.56:1909/live/777/scc") ?: "rtmp://172.20.8.56:1909/live/777/scc")
+                }
+
+                OutlinedTextField(
+                    value = rtmpUrl,
+                    onValueChange = { 
+                        rtmpUrl = it
+                        sharedPrefs.edit().putString("last_url", it).apply()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    label = { Text("Stream URL") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF155E95),
+                        unfocusedBorderColor = Color.Gray,
+                    ),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .clickable {
-                            val endpoint = "rtmp://84.54.117.248:10005/live/stream1"
-                            if (mService?.isStreaming == false) {
-                                Toast.makeText(
-                                    this@MainActivity,
-                                    "Camera not streaming",
-                                    Toast.LENGTH_LONG
-                                ).show()
+                            if (rtmpUrl.isBlank()) {
+                                Toast.makeText(this@MainActivity, "URL kiriting", Toast.LENGTH_SHORT).show()
+                                return@clickable
                             }
-                            viewModel.onStreamControlButtonClick(endpoint)
+                            viewModel.onStreamControlButtonClick(rtmpUrl)
                         }
                         .background(if (isStreaming) Color(0xFFE74C3C) else Color(0xFF155E95))
                         .padding(12.dp),
