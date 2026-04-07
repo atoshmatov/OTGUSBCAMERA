@@ -60,6 +60,14 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.google.accompanist)
     implementation(libs.bundles.koin.compose)
+    implementation(libs.navigation.compose)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.rtsp)
+    implementation(libs.media3.ui)
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
 
     implementation(project(":lib:strem_lib"))
 }
