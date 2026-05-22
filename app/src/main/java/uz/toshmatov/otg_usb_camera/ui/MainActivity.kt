@@ -9,26 +9,31 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.lifecycleScope
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import uz.toshmatov.otg_usb_camera.ui.main.MainViewModel
+import uz.toshmatov.otg_usb_camera.ui.navigation.AppNavHost
+import uz.toshmatov.otg_usb_camera.ui.settings.SettingsViewModel
+import uz.toshmatov.otg_usb_camera.ui.theme.OTGUSBCAMERATheme
 import uz.toshmatov.strem_lib.StreamService
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModel()
+    private val settingsViewModel: SettingsViewModel by viewModel()
 
-    private var mService: StreamService? = null
+    private var mService: StreamService? by mutableStateOf(null)
 
     private var isServiceBound = false
     private var hasPermissions = false
@@ -95,31 +100,23 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
 
         hasPermissions = hasAllPermissions()
         if (!hasPermissions) requestAllPermissions()
 
         setContent {
             val navController = rememberNavController()
-
-            NavHost(navController = navController, startDestination = "main") {
-                composable("main") {
-                    val localLifecycleOwner = LocalLifecycleOwner.current
-                    MainScreen(
-                        context = this@MainActivity,
-                        viewModel = viewModel,
-                        onNavigateToRtsp = { navController.navigate("rtsp_viewer") },
-                        mService = mService,
-                        lifecycleOwner = localLifecycleOwner
-                    )
-                }
-
-                composable("rtsp_viewer") {
-                    RtspViewerScreen(
-                        context = this@MainActivity,
-                        onNavigateBack = { navController.popBackStack() }
-                    )
-                }
+            OTGUSBCAMERATheme {
+                AppNavHost(
+                    navController = navController,
+                    mainViewModel = viewModel,
+                    mService = mService,
+                    settingsViewModel = settingsViewModel,
+                    onStartService = {
+                        if (hasPermissions && !isServiceBound) startAndBindService()
+                    }
+                )
             }
         }
     }
@@ -176,7 +173,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        if (hasPermissions && !isServiceBound) startAndBindService()
+        // Background'dan qaytganda service hali ishlayotgan bo'lsa qayta bind qilish.
+        // Flag 0 (BIND_AUTO_CREATE yo'q) — service allaqachon ishlamaса bind qilinmaydi.
+        if (!isServiceBound && hasPermissions) {
+            val intent = Intent(this, StreamService::class.java)
+            bindService(intent, serviceConnection, 0)
+        }
     }
 
     override fun onStop() {

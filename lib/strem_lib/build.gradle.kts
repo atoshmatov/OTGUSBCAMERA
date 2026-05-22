@@ -43,4 +43,9 @@ dependencies {
 
     api(libs.rtplibrary)
     implementation(project(":lib:libuvccamera"))
+
+    // CameraX — phone camera streaming uchun
+    implementation(libs.camera.core)
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
 }

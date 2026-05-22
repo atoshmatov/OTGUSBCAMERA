@@ -1,4 +1,4 @@
-package uz.toshmatov.otg_usb_camera.ui
+package uz.toshmatov.otg_usb_camera.ui.main
 
 import android.annotation.SuppressLint
 import androidx.lifecycle.ViewModel
@@ -68,9 +68,15 @@ class MainViewModel : ViewModel() {
     fun onStreamControlButtonClick(endpoint: String) {
         val s = service ?: return
         if (_isStreaming.value) {
-            s.stopStream(true)
+            // Run on IO — stopStream → cleanupPhoneCamera uses Thread.sleep
+            viewModelScope.launch(Dispatchers.IO) {
+                s.stopStream(true)
+            }
         } else {
-            s.startStreamRtp(endpoint)
+            // Run on IO — startPhoneCameraStream uses Thread.sleep for GL thread teardown
+            viewModelScope.launch(Dispatchers.IO) {
+                s.startStreamRtp(endpoint)
+            }
         }
     }
 }

@@ -1,72 +1,46 @@
 package uz.toshmatov.otg_usb_camera.ui.theme
 
 import android.app.Activity
-import android.os.Build
-import android.view.View
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+private val OtgColorScheme = darkColorScheme(
+    primary              = MdPrimary,
+    onPrimary            = MdOnPrimary,
+    primaryContainer     = MdPrimaryContainer,
+    onPrimaryContainer   = MdOnPrimaryContainer,
+    background           = MdBackground,
+    surface              = MdSurface,
+    surfaceVariant       = MdSurfaceVariant,
+    onBackground         = MdOnBackground,
+    onSurface            = MdOnSurface,
+    onSurfaceVariant     = MdOnSurfaceVariant,
+    outline              = MdOutline,
+    error                = MdError,
 )
 
 @Composable
 fun OTGUSBCAMERATheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val view = LocalView.current
-    view.SetLightStatusBarAppearance(darkTheme)
-
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = false
+                isAppearanceLightNavigationBars = false
+            }
         }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
     }
-
-
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = OtgColorScheme,
         typography = Typography,
         content = content
     )
-}
-
-@Composable
-fun View.SetLightStatusBarAppearance(darkTheme: Boolean) {
-    if (!this.isInEditMode) {
-        val currentWindow = (this.context as? Activity)?.window
-            ?: throw Exception("Not in an activity - unable to get Window reference")
-
-        SideEffect {
-            WindowCompat.getInsetsController(currentWindow, this).isAppearanceLightStatusBars =
-                darkTheme
-            WindowCompat.getInsetsController(currentWindow, this).isAppearanceLightNavigationBars =
-                darkTheme
-        }
-    }
 }

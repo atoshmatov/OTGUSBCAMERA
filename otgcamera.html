@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>otgcamera — Android UI/UX</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #e8e6e1; font-family: 'Manrope', system-ui, sans-serif; }
+  body { color: #111; overflow: hidden; }
+  * { box-sizing: border-box; }
+  button { font: inherit; cursor: pointer; }
+  @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(0.85); } }
+  @keyframes spin  { to { transform: rotate(360deg); } }
+  #root { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "dark",
+  "language": "uz",
+  "controlsPos": "bottom",
+  "streamState": "live"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  return (
+    <React.Fragment>
+      <DesignCanvas>
+        <DCSection id="flow" title="Full flow · 7 ekran">
+          <DCArtboard id="splash" label="01 · Splash (waiting)" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="splash"><ScreenSplash state="waiting"/></Phone>
+          </DCArtboard>
+          <DCArtboard id="splash-found" label="02 · Splash (detected)" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="detected"><ScreenSplash state="detected"/></Phone>
+          </DCArtboard>
+          <DCArtboard id="select" label="03 · Camera select" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="select"><ScreenCameraSelect/></Phone>
+          </DCArtboard>
+          <DCArtboard id="preview" label="04 · Live preview (idle)" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="idle" statusInside>
+              <ScreenLivePreview variant="minimal" controlsPos={t.controlsPos} state="idle"/>
+            </Phone>
+          </DCArtboard>
+          <DCArtboard id="rtmp" label="05 · RTMP settings" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="rtmp"><ScreenRTMPSettings/></Phone>
+          </DCArtboard>
+          <DCArtboard id="onair" label="06 · ON AIR" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="streaming" statusInside>
+              <ScreenLivePreview variant="dense" controlsPos={t.controlsPos} state="live"/>
+            </Phone>
+          </DCArtboard>
+          <DCArtboard id="player" label="07 · Stream player" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="watch" statusInside><ScreenPlayer/></Phone>
+          </DCArtboard>
+          <DCArtboard id="settings" label="08 · Settings" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="settings"><ScreenSettings/></Phone>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="variants" title="Live preview · 3 variant">
+          <DCArtboard id="v-min" label="A · Minimal · 3 ta tugma" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="minimal" statusInside>
+              <ScreenLivePreview variant="minimal" controlsPos="bottom" state={t.streamState}/>
+            </Phone>
+          </DCArtboard>
+          <DCArtboard id="v-dense" label="B · Broadcast · stats + grid" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="dense" statusInside>
+              <ScreenLivePreview variant="dense" controlsPos="bottom" state={t.streamState}/>
+            </Phone>
+          </DCArtboard>
+          <DCArtboard id="v-side" label="C · Side rail · landshaft uchun" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="side rail" statusInside>
+              <ScreenLivePreview variant="side" controlsPos="right" state={t.streamState}/>
+            </Phone>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="states" title="Holatlar · idle → connecting → live">
+          <DCArtboard id="s-idle" label="READY" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="idle" statusInside>
+              <ScreenLivePreview variant="dense" controlsPos="bottom" state="idle"/>
+            </Phone>
+          </DCArtboard>
+          <DCArtboard id="s-conn" label="CONNECTING" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="connecting" statusInside>
+              <ScreenLivePreview variant="dense" controlsPos="bottom" state="connecting"/>
+            </Phone>
+          </DCArtboard>
+          <DCArtboard id="s-live" label="ON AIR" width={PHONE_W + 36} height={PHONE_H + 60}>
+            <Phone label="live" statusInside>
+              <ScreenLivePreview variant="dense" controlsPos="bottom" state="live"/>
+            </Phone>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Stream holati">
+          <TweakRadio
+            label="State"
+            value={t.streamState}
+            onChange={v => setTweak('streamState', v)}
+            options={[
+              { value: 'idle',       label: 'Idle' },
+              { value: 'connecting', label: 'Connecting' },
+              { value: 'live',       label: 'Live' },
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection label="Boshqaruvlar joyi">
+          <TweakRadio
+            label="Layout"
+            value={t.controlsPos}
+            onChange={v => setTweak('controlsPos', v)}
+            options={[
+              { value: 'bottom', label: 'Pastda' },
+              { value: 'right',  label: "O'ngda" },
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection label="Til · Language">
+          <TweakSelect
+            label="Til"
+            value={t.language}
+            onChange={v => setTweak('language', v)}
+            options={[
+              { value: 'uz', label: "O'zbek" },
+              { value: 'ru', label: 'Русский' },
+              { value: 'en', label: 'English' },
+            ]}
+          />
+        </TweakSection>
+
+        <TweakSection label="Tema">
+          <TweakRadio
+            label="Theme"
+            value={t.theme}
+            onChange={v => setTweak('theme', v)}
+            options={[
+              { value: 'dark',   label: 'Dark' },
+              { value: 'amoled', label: 'AMOLED' },
+            ]}
+          />
+        </TweakSection>
+      </TweaksPanel>
+    </React.Fragment>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+</body>
+</html>
