@@ -500,16 +500,6 @@ class StreamService : Service() {
         // Oddiy stopStream() da bu chaqirilmaydi — preview davom etishi kerak
     }
 
-    fun setView2(view: OpenGlView) {
-        openGlView = view
-        runCatching { rtmpUSB?.replaceView(view, uvcCamera) }
-    }
-
-    fun setView(context: Context) {
-        openGlView = null
-        runCatching { rtmpUSB?.replaceView(context, uvcCamera) }
-    }
-
     fun setView(view: OpenGlView) {
         if (openGlView != view) {
             openGlView = view
