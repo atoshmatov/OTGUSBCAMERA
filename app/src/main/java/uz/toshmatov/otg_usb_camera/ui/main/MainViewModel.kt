@@ -1,24 +1,35 @@
 package uz.toshmatov.otg_usb_camera.ui.main
 
 import android.annotation.SuppressLint
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import uz.toshmatov.strem_lib.CameraState
 import uz.toshmatov.strem_lib.StreamService
 
-class MainViewModel : ViewModel() {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val prefs = application.getSharedPreferences(StreamSettings.PREFS_NAME, Context.MODE_PRIVATE)
+
+    private val _settings = MutableStateFlow(StreamSettings.fromPrefs(prefs))
+    val settings: StateFlow<StreamSettings> = _settings.asStateFlow()
+
+    val rtmpUrl: StateFlow<String> = _settings
+        .map { it.rtmpUrl }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, _settings.value.rtmpUrl)
 
     private val _isStreaming = MutableStateFlow(false)
     val isStreaming: StateFlow<Boolean> = _isStreaming.asStateFlow()
-
-    private val _rtmpUrl = MutableStateFlow("rtmp://84.54.117.248:10005/live/stream1")
-    val rtmpUrl: StateFlow<String> = _rtmpUrl.asStateFlow()
 
     private val _cameraState = MutableStateFlow<CameraState>(CameraState.Disconnected)
     val cameraState: StateFlow<CameraState> = _cameraState.asStateFlow()
@@ -32,17 +43,11 @@ class MainViewModel : ViewModel() {
         service = streamService
         streamCollectJob?.cancel()
         cameraStateCollectJob?.cancel()
-
         streamCollectJob = viewModelScope.launch(Dispatchers.IO) {
-            streamService.isStreamingFlow.collect { state ->
-                _isStreaming.value = state
-            }
+            streamService.isStreamingFlow.collect { _isStreaming.value = it }
         }
-
         cameraStateCollectJob = viewModelScope.launch(Dispatchers.IO) {
-            streamService.cameraStateFlow.collect { state ->
-                _cameraState.value = state
-            }
+            streamService.cameraStateFlow.collect { _cameraState.value = it }
         }
     }
 
@@ -59,24 +64,26 @@ class MainViewModel : ViewModel() {
         _isStreaming.value = isStreaming
     }
 
-    fun updateRtmpUrl(url: String) {
-        _rtmpUrl.value = url
+    fun updateSettings(settings: StreamSettings) {
+        _settings.value = settings
+        StreamSettings.saveToPrefs(settings, prefs)
     }
 
-    fun getRtmpEndpoint(): String = _rtmpUrl.value
+    fun updateRtmpUrl(url: String) {
+        val updated = _settings.value.copy(rtmpUrl = url)
+        _settings.value = updated
+        StreamSettings.saveToPrefs(updated, prefs)
+    }
+
+    fun getRtmpEndpoint(): String = _settings.value.rtmpUrl
 
     fun onStreamControlButtonClick(endpoint: String) {
         val s = service ?: return
         if (_isStreaming.value) {
-            // Run on IO — stopStream → cleanupPhoneCamera uses Thread.sleep
-            viewModelScope.launch(Dispatchers.IO) {
-                s.stopStream(true)
-            }
+            viewModelScope.launch(Dispatchers.IO) { s.stopStream(true) }
         } else {
-            // Run on IO — startPhoneCameraStream uses Thread.sleep for GL thread teardown
-            viewModelScope.launch(Dispatchers.IO) {
-                s.startStreamRtp(endpoint)
-            }
+            val config = _settings.value.toStreamConfig()
+            viewModelScope.launch(Dispatchers.IO) { s.startStreamRtp(endpoint, config) }
         }
     }
 }

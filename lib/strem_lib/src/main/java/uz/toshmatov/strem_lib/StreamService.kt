@@ -6,7 +6,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.hardware.camera2.CameraCharacteristics
 import android.hardware.usb.UsbDevice
 import android.os.Binder
 import android.os.Build
@@ -52,6 +51,8 @@ class StreamService : Service() {
     var cameraWidth = 1280
     var cameraHeight = 960
 
+    private var lastConfig: StreamConfig = StreamConfig()
+
     private val _isStreamingFlow = MutableStateFlow(false)
     val isStreamingFlow = _isStreamingFlow.asStateFlow()
 
@@ -93,7 +94,7 @@ class StreamService : Service() {
             endpoint = savedEndpoint
             serviceScope.launch {
                 delay(1000)
-                startStreamRtp(savedEndpoint)
+                startStreamRtp(savedEndpoint, lastConfig)
             }
         }
     }
@@ -108,7 +109,7 @@ class StreamService : Service() {
 
             serviceScope.launch {
                 delay(500)
-                startStreamRtp(url)
+                startStreamRtp(url, lastConfig)
             }
         }
 
@@ -217,7 +218,7 @@ class StreamService : Service() {
                     runCatching { rtmpUSB?.startPreview(camera, cameraWidth, cameraHeight) }
                     endpoint?.let { url ->
                         delay(350)
-                        startStreamRtp(url)
+                        startStreamRtp(url, lastConfig)
                     }
                 }
             } catch (e: Exception) {
@@ -297,19 +298,19 @@ class StreamService : Service() {
         runCatching { if (cam2.isStreaming) cam2.stopStream() }
     }
 
-    fun startStreamRtp(endpoint: String): Boolean {
+    fun startStreamRtp(endpoint: String, config: StreamConfig = StreamConfig()): Boolean {
         if (isServiceDestroying) return false
         this.endpoint = endpoint
+        lastConfig = config
 
-        // Try USB camera first, fall back to phone camera
         return if (uvcCamera != null) {
-            startUSBStream(endpoint)
+            startUSBStream(endpoint, config)
         } else {
-            startPhoneCameraStream(endpoint)
+            startPhoneCameraStream(endpoint, config)
         }
     }
 
-    private fun startUSBStream(endpoint: String): Boolean {
+    private fun startUSBStream(endpoint: String, config: StreamConfig): Boolean {
         if (uvcCamera == null) {
             Log.e(TAG, "Camera not ready for streaming")
             return false
@@ -319,9 +320,14 @@ class StreamService : Service() {
             prepareRtmpUSB()
             rtmpUSB?.let { r ->
                 val ok = r.prepareVideo(
-                    cameraWidth, cameraHeight, 30,
-                    4000 * 1024, 0, uvcCamera
-                ) && r.prepareAudio()
+                    cameraWidth, cameraHeight,
+                    config.fps,
+                    config.videoBitrateKbps * 1000,
+                    0, uvcCamera
+                ) && r.prepareAudio(
+                    config.audioBitrateKbps * 1000,
+                    44_100, true, false, false
+                )
                 if (ok) {
                     r.startStream(uvcCamera, endpoint)
                     isUsingPhoneCamera = false
@@ -337,7 +343,7 @@ class StreamService : Service() {
         }
     }
 
-    private fun startPhoneCameraStream(endpoint: String): Boolean {
+    private fun startPhoneCameraStream(endpoint: String, config: StreamConfig): Boolean {
         return try {
             Log.d(TAG, "Starting phone camera stream to $endpoint")
 
@@ -365,19 +371,19 @@ class StreamService : Service() {
             }
 
             val videoReady = camera2.prepareVideo(
-                /* width           */ 1280,
-                /* height          */ 720,
-                /* fps             */ 30,
-                /* bitrate         */ 2_500_000,
-                /* iFrameInterval  */ 2,
-                /* rotation        */ 0
+                config.videoWidth,
+                config.videoHeight,
+                config.fps,
+                config.videoBitrateKbps * 1000,
+                2,
+                0
             )
             val audioReady = camera2.prepareAudio(
-                /* bitrate         */ 128_000,
-                /* sampleRate      */ 44_100,
-                /* isStereo        */ true,
-                /* echoCanceler    */ false,
-                /* noiseSuppressor */ false
+                config.audioBitrateKbps * 1000,
+                44_100,
+                true,
+                false,
+                false
             )
 
             if (!videoReady || !audioReady) {
@@ -386,11 +392,8 @@ class StreamService : Service() {
                 return false
             }
 
-            // Foydalanuvchi CameraSelectScreen da tanlagan facing preference ni o'qish
-            val preferredFacing = getSharedPreferences("stream_prefs", MODE_PRIVATE)
-                .getInt("preferred_facing", CameraCharacteristics.LENS_FACING_BACK)
-            val primary = if (preferredFacing == CameraCharacteristics.LENS_FACING_FRONT)
-                CameraHelper.Facing.FRONT else CameraHelper.Facing.BACK
+            // config.preferredFacing: 0=FRONT, 1=BACK
+            val primary = if (config.preferredFacing == 0) CameraHelper.Facing.FRONT else CameraHelper.Facing.BACK
             val fallback = if (primary == CameraHelper.Facing.FRONT)
                 CameraHelper.Facing.BACK else CameraHelper.Facing.FRONT
 

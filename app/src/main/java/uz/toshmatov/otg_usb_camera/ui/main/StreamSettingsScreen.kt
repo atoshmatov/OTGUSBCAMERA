@@ -2,6 +2,7 @@ package uz.toshmatov.otg_usb_camera.ui.main
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,14 +56,14 @@ import uz.toshmatov.otg_usb_camera.ui.theme.OtgSurface
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgSurface2
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgText
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgTextMute
+import uz.toshmatov.strem_lib.CameraState
 
 @Composable
-fun StreamSettingsScreen(
-    onBack: () -> Unit,
-    viewModel: MainViewModel
-) {
-    val rtmpUrl by viewModel.rtmpUrl.collectAsStateWithLifecycle()
-    var urlInput by remember(rtmpUrl) { mutableStateOf(rtmpUrl) }
+fun StreamSettingsScreen(onBack: () -> Unit, viewModel: MainViewModel) {
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val cameraState by viewModel.cameraState.collectAsStateWithLifecycle()
+    // Draft — foydalanuvchi tahrirlaydi, "Saqlash" bosilganda commit bo'ladi
+    var draft by remember(settings) { mutableStateOf(settings) }
 
     Column(
         modifier = Modifier
@@ -82,11 +85,7 @@ fun StreamSettingsScreen(
                     .clip(RoundedCornerShape(12.dp))
                     .background(OtgSurface2)
             ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = null,
-                    tint = OtgText
-                )
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = OtgText)
             }
             Text(
                 "Stream sozlamalari",
@@ -101,7 +100,7 @@ fun StreamSettingsScreen(
             modifier = Modifier.padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // RTMP Server section
+            // RTMP Server
             OtgSection(title = "RTMP Server") {
                 Column(modifier = Modifier.padding(4.dp)) {
                     Text(
@@ -111,8 +110,8 @@ fun StreamSettingsScreen(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                     OutlinedTextField(
-                        value = urlInput,
-                        onValueChange = { urlInput = it },
+                        value = draft.rtmpUrl,
+                        onValueChange = { draft = draft.copy(rtmpUrl = it) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 12.dp),
@@ -136,31 +135,65 @@ fun StreamSettingsScreen(
                 }
             }
 
-            // Video section
+            // Video
             OtgSection(title = "Video") {
-                OtgPickerRow("Resolution", "1920 × 1080", "Full HD")
-                OtgPickerRow("Frame rate", "30 fps")
-                OtgPickerRow("Codec", "H.264 · High")
-                OtgPickerRow("Bitrate", "4200 kbps")
+                OtgPickerRow(
+                    label = "Resolution",
+                    currentValue = draft.resolutionLabel,
+                    options = StreamSettings.RESOLUTION_OPTIONS.map { it.third },
+                    onSelect = { label ->
+                        StreamSettings.RESOLUTION_OPTIONS.find { it.third == label }
+                            ?.let { (w, h, _) -> draft = draft.copy(videoWidth = w, videoHeight = h) }
+                    }
+                )
+                OtgPickerRow(
+                    label = "Frame rate",
+                    currentValue = draft.fpsLabel,
+                    options = StreamSettings.FPS_OPTIONS.map { "$it fps" },
+                    onSelect = { label ->
+                        label.removeSuffix(" fps").toIntOrNull()
+                            ?.let { draft = draft.copy(fps = it) }
+                    }
+                )
+                OtgPickerRow(
+                    label = "Video bitrate",
+                    currentValue = draft.videoBitrateLabel,
+                    options = StreamSettings.VIDEO_BITRATE_OPTIONS.map { "$it kbps" },
+                    onSelect = { label ->
+                        label.removeSuffix(" kbps").toIntOrNull()
+                            ?.let { draft = draft.copy(videoBitrateKbps = it) }
+                    }
+                )
             }
 
             // Audio
             OtgSection(title = "Audio") {
-                OtgPickerRow("Bitrate", "128 kbps")
-                OtgPickerRow("Source", "USB camera mic")
+                OtgPickerRow(
+                    label = "Bitrate",
+                    currentValue = draft.audioBitrateLabel,
+                    options = StreamSettings.AUDIO_BITRATE_OPTIONS.map { "$it kbps" },
+                    onSelect = { label ->
+                        label.removeSuffix(" kbps").toIntOrNull()
+                            ?.let { draft = draft.copy(audioBitrateKbps = it) }
+                    }
+                )
+                OtgInfoRow(
+                    label = "Source",
+                    value = if (cameraState == CameraState.USB) "USB camera mic" else "Device mic"
+                )
             }
 
             // Advanced
             OtgSection(title = "Advanced") {
-                OtgToggleRow("Auto-reconnect", true)
-                OtgToggleRow("Adaptive bitrate", true)
-                OtgToggleRow("Hardware encoder", false)
+                OtgToggleRow("Auto-reconnect", draft.autoReconnect) { draft = draft.copy(autoReconnect = it) }
+                OtgToggleRow("Adaptive bitrate", draft.adaptiveBitrate) { draft = draft.copy(adaptiveBitrate = it) }
+                OtgToggleRow("Hardware encoder", draft.hardwareEncoder) { draft = draft.copy(hardwareEncoder = it) }
             }
 
             // Save button
             Button(
                 onClick = {
-                    viewModel.updateRtmpUrl(urlInput)
+                    viewModel.updateSettings(draft)
                     onBack()
                 },
                 modifier = Modifier
@@ -207,7 +240,59 @@ internal fun OtgSection(title: String, content: @Composable ColumnScope.() -> Un
 }
 
 @Composable
-internal fun OtgPickerRow(label: String, value: String, sub: String? = null) {
+internal fun OtgPickerRow(
+    label: String,
+    currentValue: String,
+    sub: String? = null,
+    options: List<String>,
+    onSelect: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = true }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                label,
+                color = OtgText,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f)
+            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(currentValue, color = OtgText, fontSize = 13.sp)
+                if (sub != null) Text(sub, color = OtgTextMute, fontSize = 10.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = OtgTextMute,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(OtgSurface2)
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option, color = OtgText, fontSize = 14.sp) },
+                    onClick = { onSelect(option); expanded = false }
+                )
+            }
+        }
+    }
+    HorizontalDivider(color = OtgHairline, thickness = 0.5.dp)
+}
+
+@Composable
+internal fun OtgInfoRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -221,24 +306,13 @@ internal fun OtgPickerRow(label: String, value: String, sub: String? = null) {
             fontWeight = FontWeight.Medium,
             modifier = Modifier.weight(1f)
         )
-        Column(horizontalAlignment = Alignment.End) {
-            Text(value, color = OtgText, fontSize = 13.sp)
-            if (sub != null) Text(sub, color = OtgTextMute, fontSize = 10.sp)
-        }
-        Spacer(Modifier.width(8.dp))
-        Icon(
-            Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = OtgTextMute,
-            modifier = Modifier.size(18.dp)
-        )
+        Text(value, color = OtgTextMute, fontSize = 13.sp)
     }
     HorizontalDivider(color = OtgHairline, thickness = 0.5.dp)
 }
 
 @Composable
-internal fun OtgToggleRow(label: String, initialChecked: Boolean) {
-    var state by remember { mutableStateOf(initialChecked) }
+internal fun OtgToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -253,8 +327,8 @@ internal fun OtgToggleRow(label: String, initialChecked: Boolean) {
             modifier = Modifier.weight(1f)
         )
         Switch(
-            checked = state,
-            onCheckedChange = { state = it },
+            checked = checked,
+            onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = OtgAccent,

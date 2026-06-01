@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.hardware.camera2.CameraCharacteristics
 import android.hardware.usb.UsbManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -92,7 +91,7 @@ fun AppNavHost(
                     // Phone kamera tanlansa — facing preference ni saqlash
                     // StreamService startPhoneCameraStream() da shu preference'ga qaraydi
                     if (selectedCamera != null && !selectedCamera.isUsbConnected && selectedCamera.facing != null) {
-                        context.getSharedPreferences("stream_prefs", Context.MODE_PRIVATE).edit {
+                        context.getSharedPreferences("stream_settings", Context.MODE_PRIVATE).edit {
                             putInt("preferred_facing", selectedCamera.facing)
                         }
                     }
