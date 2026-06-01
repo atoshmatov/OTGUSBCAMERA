@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -64,6 +65,7 @@ import androidx.lifecycle.lifecycleScope
 import com.pedro.rtplibrary.view.OpenGlView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgAccent
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgGood
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgHairline
@@ -75,16 +77,18 @@ import uz.toshmatov.strem_lib.StreamService
 
 @Composable
 fun LivePreviewScreen(
-    viewModel: MainViewModel,
     mService: StreamService?,
     onOpenSettings: () -> Unit,
     onOpenStreamSettings: () -> Unit,
     onOpenPlayer: () -> Unit
 ) {
+    val viewModel = koinViewModel<MainViewModel>()
+    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val isStreaming by viewModel.isStreaming.collectAsStateWithLifecycle()
     val cameraState by viewModel.cameraState.collectAsStateWithLifecycle()
     val rtmpUrl by viewModel.rtmpUrl.collectAsStateWithLifecycle()
+    val snapshotState by viewModel.snapshotState.collectAsStateWithLifecycle()
 
     var openGlViewRef by remember { mutableStateOf<OpenGlView?>(null) }
 
@@ -377,14 +381,41 @@ fun LivePreviewScreen(
 
                 // Camera snapshot
                 IconButton(
-                    onClick = { },
+                    onClick = {
+                        if (snapshotState == SnapshotState.Idle) {
+                            viewModel.takeSnapshot(context)
+                        }
+                    },
                     modifier = Modifier
                         .size(50.dp)
                         .clip(CircleShape)
-                        .background(Color(0x80000000))
-                        .border(1.dp, OtgHairline2, CircleShape)
+                        .background(
+                            when (snapshotState) {
+                                SnapshotState.Success -> OtgGood.copy(alpha = 0.25f)
+                                SnapshotState.Error   -> OtgAccent.copy(alpha = 0.25f)
+                                else                  -> Color(0x80000000)
+                            }
+                        )
+                        .border(
+                            1.dp,
+                            when (snapshotState) {
+                                SnapshotState.Success -> OtgGood
+                                SnapshotState.Error   -> OtgAccent
+                                else                  -> OtgHairline2
+                            },
+                            CircleShape
+                        )
                 ) {
-                    Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.White)
+                    Icon(
+                        Icons.Default.CameraAlt,
+                        contentDescription = null,
+                        tint = when (snapshotState) {
+                            SnapshotState.Success -> OtgGood
+                            SnapshotState.Error   -> OtgAccent
+                            SnapshotState.Saving  -> Color.White.copy(alpha = 0.4f)
+                            else                  -> Color.White
+                        }
+                    )
                 }
             }
 

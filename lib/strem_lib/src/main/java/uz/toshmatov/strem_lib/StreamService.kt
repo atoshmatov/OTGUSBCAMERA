@@ -6,11 +6,15 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
 import android.hardware.usb.UsbDevice
 import android.os.Binder
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
+import android.view.PixelCopy
 import androidx.core.app.NotificationCompat
 import androidx.core.content.edit
 import com.pedro.encoder.input.video.CameraHelper
@@ -574,6 +578,27 @@ class StreamService : Service() {
         }
 
         override fun onAuthSuccessRtmp() = showNotification("Auth success")
+    }
+
+    /**
+     * Joriy kadrdan rasm oladi (PixelCopy — API 26+, minSdk bilan mos).
+     * callback: Bitmap (muvaffaqiyatli) yoki null (xato / view yo'q).
+     */
+    fun takeSnapshot(callback: (Bitmap?) -> Unit) {
+        val view = openGlView
+        if (view == null || !view.isAttachedToWindow || view.width == 0 || view.height == 0) {
+            Log.w(TAG, "takeSnapshot: view not ready")
+            callback(null)
+            return
+        }
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        PixelCopy.request(view, bitmap, { result ->
+            if (result == PixelCopy.SUCCESS) callback(bitmap)
+            else {
+                Log.w(TAG, "takeSnapshot: PixelCopy failed, result=$result")
+                callback(null)
+            }
+        }, Handler(Looper.getMainLooper()))
     }
 
     private fun cleanupResources() {
