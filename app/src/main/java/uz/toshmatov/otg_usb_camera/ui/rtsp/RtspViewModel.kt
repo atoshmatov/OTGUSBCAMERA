@@ -1,23 +1,37 @@
 package uz.toshmatov.otg_usb_camera.ui.rtsp
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import android.content.Context
+import androidx.core.content.edit
+import androidx.lifecycle.AndroidViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class RtspViewModel : ViewModel() {
+sealed class PlayerState {
+    data object Idle : PlayerState()
+    data object Buffering : PlayerState()
+    data object Playing : PlayerState()
+    data object Paused : PlayerState()
+    data class Error(val message: String) : PlayerState()
+}
 
-    private val _rtspUrl = MutableStateFlow("rtsp://example.com/stream")
+class RtspViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val prefs = application.getSharedPreferences("rtsp_prefs", Context.MODE_PRIVATE)
+
+    private val _rtspUrl = MutableStateFlow(prefs.getString("rtsp_url", "") ?: "")
     val rtspUrl: StateFlow<String> = _rtspUrl.asStateFlow()
 
-    private val _isPlaying = MutableStateFlow(false)
-    val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+    private val _playerState = MutableStateFlow<PlayerState>(PlayerState.Idle)
+    val playerState: StateFlow<PlayerState> = _playerState.asStateFlow()
 
     fun updateRtspUrl(url: String) {
         _rtspUrl.value = url
+        prefs.edit { putString("rtsp_url", url) }
     }
 
-    fun setPlaying(playing: Boolean) {
-        _isPlaying.value = playing
+    fun updatePlayerState(state: PlayerState) {
+        _playerState.value = state
     }
 }

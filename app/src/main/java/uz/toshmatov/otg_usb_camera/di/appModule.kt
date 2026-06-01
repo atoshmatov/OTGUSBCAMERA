@@ -9,6 +9,6 @@ import uz.toshmatov.otg_usb_camera.ui.settings.SettingsViewModel
 
 val appModule = module {
     viewModel { MainViewModel(androidApplication()) }
-    viewModel { RtspViewModel() }
+    viewModel { RtspViewModel(androidApplication()) }
     viewModel { SettingsViewModel() }
 }
