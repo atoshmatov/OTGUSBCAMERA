@@ -1,5 +1,13 @@
 package uz.toshmatov.otg_usb_camera.ui.splash
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.EaseOut
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.StartOffset
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -18,9 +26,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Usb
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,16 +55,69 @@ fun SplashScreen(
     usbDetected: Boolean = false,
     onContinue: () -> Unit
 ) {
-    // Status pill colors depend on detection state
-    val pillBg = if (usbDetected) OtgGood.copy(alpha = 0.15f) else OtgSurface
-    val pillBorder = if (usbDetected) OtgGood.copy(alpha = 0.4f) else OtgHairline
-    val dotColor = if (usbDetected) OtgGood else OtgWarn
-    val pillText = if (usbDetected) "Topildi!" else "kutilmoqda..."
-    val pillTextColor = if (usbDetected) OtgGood else OtgTextDim
+    // ── Smooth color transitions ────────────────────────────────────
+    val pillBg by animateColorAsState(
+        targetValue = if (usbDetected) OtgGood.copy(alpha = 0.15f) else OtgSurface,
+        animationSpec = tween(500), label = "pillBg"
+    )
+    val pillBorder by animateColorAsState(
+        targetValue = if (usbDetected) OtgGood.copy(alpha = 0.4f) else OtgHairline,
+        animationSpec = tween(500), label = "pillBorder"
+    )
+    val dotColor by animateColorAsState(
+        targetValue = if (usbDetected) OtgGood else OtgWarn,
+        animationSpec = tween(500), label = "dotColor"
+    )
+    val pillTextColor by animateColorAsState(
+        targetValue = if (usbDetected) OtgGood else OtgTextDim,
+        animationSpec = tween(500), label = "pillTextColor"
+    )
+    val iconTint by animateColorAsState(
+        targetValue = if (usbDetected) OtgGood else OtgText,
+        animationSpec = tween(600), label = "iconTint"
+    )
+    val iconBoxBorder by animateColorAsState(
+        targetValue = if (usbDetected) OtgGood.copy(alpha = 0.4f) else OtgHairline2,
+        animationSpec = tween(600), label = "iconBoxBorder"
+    )
+    val ringColor by animateColorAsState(
+        targetValue = if (usbDetected) OtgGood else OtgHairline,
+        animationSpec = tween(600), label = "ringColor"
+    )
 
-    // Icon tint: yashil bo'lganda OtgGood, aks holda OtgText
-    val iconTint = if (usbDetected) OtgGood else OtgText
-    val iconBoxBorder = if (usbDetected) OtgGood.copy(alpha = 0.4f) else OtgHairline2
+    // ── Pulse ring animation ────────────────────────────────────────
+    // 3 ta halqa ketma-ket 667ms interval bilan "portlab" chiqadi
+    val pulse = rememberInfiniteTransition(label = "pulse")
+
+    // Har ring uchun 0f→1f qiymati: scale + alpha hisoblanadi
+    val r1 by pulse.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            tween(2000, easing = EaseOut),
+            RepeatMode.Restart,
+            StartOffset(0)
+        ), label = "r1"
+    )
+    val r2 by pulse.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            tween(2000, easing = EaseOut),
+            RepeatMode.Restart,
+            StartOffset(667)
+        ), label = "r2"
+    )
+    val r3 by pulse.animateFloat(
+        initialValue = 0f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            tween(2000, easing = EaseOut),
+            RepeatMode.Restart,
+            StartOffset(1334)
+        ), label = "r3"
+    )
+
+    // scale: 0.35f → 1.0f,  alpha: 0.6f → 0.0f
+    fun ringScale(t: Float) = 0.35f + t * 0.65f
+    fun ringAlpha(t: Float) = (0.6f * (1f - t)).coerceIn(0f, 1f)
 
     Column(
         modifier = Modifier
@@ -64,7 +127,7 @@ fun SplashScreen(
             .padding(horizontal = 28.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Brand
+        // ── Brand ───────────────────────────────────────────────────
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -93,25 +156,32 @@ fun SplashScreen(
             )
         }
 
-        // Center — USB illustration
+        // ── Center — USB illustration ────────────────────────────────
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(32.dp)
         ) {
-            // Pulse rings + icon
+            // Pulse halqalar + icon
             Box(
                 modifier = Modifier.size(200.dp),
                 contentAlignment = Alignment.Center
             ) {
-                listOf(0.5f, 0.75f, 1.0f).forEach { scale ->
+                // Pulslanuvchi halqalar
+                listOf(r1, r2, r3).forEach { t ->
                     Box(
                         modifier = Modifier
-                            .fillMaxSize(scale)
+                            .fillMaxSize(ringScale(t))
                             .clip(CircleShape)
-                            .border(1.dp, OtgHairline, CircleShape)
+                            .border(
+                                width = 1.dp,
+                                color = ringColor.copy(alpha = ringAlpha(t)),
+                                shape = CircleShape
+                            )
                     )
                 }
+
+                // Icon
                 Box(
                     modifier = Modifier
                         .size(96.dp)
@@ -129,6 +199,7 @@ fun SplashScreen(
                 }
             }
 
+            // Matn
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -152,32 +223,70 @@ fun SplashScreen(
                 )
             }
 
-            // Status pill — kutilmoqda (sariq) yoki Topildi! (yashil)
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(99.dp))
-                    .background(pillBg)
-                    .border(1.dp, pillBorder, RoundedCornerShape(99.dp))
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
+            // Status pill + progress
+            if (usbDetected) {
+                // Topildi: pill + kichik progress indicator
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(99.dp))
+                            .background(pillBg)
+                            .border(1.dp, pillBorder, RoundedCornerShape(99.dp))
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(dotColor)
+                        )
+                        Text(
+                            "Topildi!",
+                            color = pillTextColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = OtgGood,
+                        strokeWidth = 2.dp
+                    )
+                }
+            } else {
+                // Kutilmoqda: oddiy pill
+                Row(
                     modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(dotColor)
-                )
-                Text(
-                    pillText,
-                    color = pillTextColor,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
+                        .clip(RoundedCornerShape(99.dp))
+                        .background(pillBg)
+                        .border(1.dp, pillBorder, RoundedCornerShape(99.dp))
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(dotColor)
+                    )
+                    Text(
+                        "Kutilmoqda...",
+                        color = pillTextColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 
-        // Bottom button
+        // ── Pastki tugma ─────────────────────────────────────────────
+        // USB ulashni kutmasdan qo'lda davom etish
         Button(
             onClick = onContinue,
             modifier = Modifier
@@ -190,7 +299,7 @@ fun SplashScreen(
             )
         ) {
             Text(
-                "Qo'llanma · Yordam",
+                "Qo'lda davom etish",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = (-0.2).sp
