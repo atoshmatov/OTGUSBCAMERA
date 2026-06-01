@@ -17,6 +17,7 @@ import androidx.core.content.edit
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.delay
 import uz.toshmatov.otg_usb_camera.ui.main.LivePreviewScreen
 import uz.toshmatov.otg_usb_camera.ui.main.MainViewModel
@@ -30,12 +31,10 @@ import uz.toshmatov.strem_lib.StreamService
 
 @Composable
 fun AppNavHost(
-    navController: NavHostController,
-    mainViewModel: MainViewModel,
     mService: StreamService?,
-    settingsViewModel: SettingsViewModel,
     onStartService: () -> Unit = {}
 ) {
+    val navController = rememberNavController()
     NavHost(
         navController = navController,
         startDestination = Screen.Splash.route
@@ -107,7 +106,6 @@ fun AppNavHost(
                 onStartService()
             }
             LivePreviewScreen(
-                viewModel = mainViewModel,
                 mService = mService,
                 onOpenSettings = { navController.navigate(Screen.Settings.route) },
                 onOpenStreamSettings = { navController.navigate(Screen.StreamSettings.route) },
@@ -117,7 +115,6 @@ fun AppNavHost(
         composable(Screen.StreamSettings.route) {
             StreamSettingsScreen(
                 onBack = { navController.popBackStack() },
-                viewModel = mainViewModel
             )
         }
         composable(Screen.StreamPlayer.route) {
@@ -127,7 +124,6 @@ fun AppNavHost(
         }
         composable(Screen.Settings.route) {
             SettingsScreen(
-                viewModel = settingsViewModel,
                 onBack = { navController.popBackStack() }
             )
         }

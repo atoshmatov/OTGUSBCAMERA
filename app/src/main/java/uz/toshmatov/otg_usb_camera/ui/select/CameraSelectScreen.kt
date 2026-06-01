@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import uz.toshmatov.otg_usb_camera.ui.select.model.CameraDevice
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgAccent
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgBg
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgGood
@@ -62,23 +63,13 @@ import uz.toshmatov.otg_usb_camera.ui.theme.OtgSurface
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgSurface2
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgText
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgTextDim
-
-data class CameraDevice(
-    val name: String,
-    val sub: String,
-    val isUsbConnected: Boolean,
-    val icon: ImageVector,
-    /** CameraCharacteristics.LENS_FACING_BACK / FRONT — phone kameralarda, USB da null */
-    val facing: Int? = null
-)
-
 /**
  * Qurilmadagi kameralarni aniqlaydi.
  * USB: faqat UVC (Video Interface Class = 0x0E) qurilmalar.
  * Phone: Camera2 API orqali barcha ichki kameralar.
  * IO thread da ishlatish kerak.
  */
-suspend fun detectCameras(context: Context): List<CameraDevice> = withContext(Dispatchers.IO) {
+private suspend fun detectCameras(context: Context): List<CameraDevice> = withContext(Dispatchers.IO) {
     val result = mutableListOf<CameraDevice>()
 
     // USB kameralar — faqat USB Video Class (UVC) qurilmalar

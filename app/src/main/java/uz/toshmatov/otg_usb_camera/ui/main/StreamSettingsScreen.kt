@@ -1,12 +1,8 @@
 package uz.toshmatov.otg_usb_camera.ui.main
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,24 +11,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -48,21 +37,26 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import org.koin.androidx.compose.koinViewModel
+import uz.toshmatov.otg_usb_camera.ui.main.component.OtgInfoRow
+import uz.toshmatov.otg_usb_camera.ui.main.component.OtgPickerRow
+import uz.toshmatov.otg_usb_camera.ui.main.component.OtgSection
+import uz.toshmatov.otg_usb_camera.ui.main.component.OtgToggleRow
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgAccent
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgBg
-import uz.toshmatov.otg_usb_camera.ui.theme.OtgHairline
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgHairline2
-import uz.toshmatov.otg_usb_camera.ui.theme.OtgSurface
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgSurface2
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgText
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgTextMute
 import uz.toshmatov.strem_lib.CameraState
 
 @Composable
-fun StreamSettingsScreen(onBack: () -> Unit, viewModel: MainViewModel) {
+fun StreamSettingsScreen(
+    onBack: () -> Unit,
+) {
+    val viewModel = koinViewModel<MainViewModel>()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val cameraState by viewModel.cameraState.collectAsStateWithLifecycle()
-    // Draft — foydalanuvchi tahrirlaydi, "Saqlash" bosilganda commit bo'ladi
     var draft by remember(settings) { mutableStateOf(settings) }
 
     Column(
@@ -143,7 +137,9 @@ fun StreamSettingsScreen(onBack: () -> Unit, viewModel: MainViewModel) {
                     options = StreamSettings.RESOLUTION_OPTIONS.map { it.third },
                     onSelect = { label ->
                         StreamSettings.RESOLUTION_OPTIONS.find { it.third == label }
-                            ?.let { (w, h, _) -> draft = draft.copy(videoWidth = w, videoHeight = h) }
+                            ?.let { (w, h, _) ->
+                                draft = draft.copy(videoWidth = w, videoHeight = h)
+                            }
                     }
                 )
                 OtgPickerRow(
@@ -185,9 +181,15 @@ fun StreamSettingsScreen(onBack: () -> Unit, viewModel: MainViewModel) {
 
             // Advanced
             OtgSection(title = "Advanced") {
-                OtgToggleRow("Auto-reconnect", draft.autoReconnect) { draft = draft.copy(autoReconnect = it) }
-                OtgToggleRow("Adaptive bitrate", draft.adaptiveBitrate) { draft = draft.copy(adaptiveBitrate = it) }
-                OtgToggleRow("Hardware encoder", draft.hardwareEncoder) { draft = draft.copy(hardwareEncoder = it) }
+                OtgToggleRow("Auto-reconnect", draft.autoReconnect) {
+                    draft = draft.copy(autoReconnect = it)
+                }
+                OtgToggleRow("Adaptive bitrate", draft.adaptiveBitrate) {
+                    draft = draft.copy(adaptiveBitrate = it)
+                }
+                OtgToggleRow("Hardware encoder", draft.hardwareEncoder) {
+                    draft = draft.copy(hardwareEncoder = it)
+                }
             }
 
             // Save button
@@ -218,124 +220,3 @@ fun StreamSettingsScreen(onBack: () -> Unit, viewModel: MainViewModel) {
     }
 }
 
-@Composable
-internal fun OtgSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column {
-        Text(
-            title.uppercase(),
-            color = OtgTextMute,
-            fontSize = 10.sp,
-            letterSpacing = 1.5.sp,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp)
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(OtgSurface)
-                .border(1.dp, OtgHairline, RoundedCornerShape(16.dp)),
-            content = content
-        )
-    }
-}
-
-@Composable
-internal fun OtgPickerRow(
-    label: String,
-    currentValue: String,
-    sub: String? = null,
-    options: List<String>,
-    onSelect: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Box(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = true }
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                label,
-                color = OtgText,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.weight(1f)
-            )
-            Column(horizontalAlignment = Alignment.End) {
-                Text(currentValue, color = OtgText, fontSize = 13.sp)
-                if (sub != null) Text(sub, color = OtgTextMute, fontSize = 10.sp)
-            }
-            Spacer(Modifier.width(8.dp))
-            Icon(
-                Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = OtgTextMute,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.background(OtgSurface2)
-        ) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option, color = OtgText, fontSize = 14.sp) },
-                    onClick = { onSelect(option); expanded = false }
-                )
-            }
-        }
-    }
-    HorizontalDivider(color = OtgHairline, thickness = 0.5.dp)
-}
-
-@Composable
-internal fun OtgInfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            label,
-            color = OtgText,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(1f)
-        )
-        Text(value, color = OtgTextMute, fontSize = 13.sp)
-    }
-    HorizontalDivider(color = OtgHairline, thickness = 0.5.dp)
-}
-
-@Composable
-internal fun OtgToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            label,
-            color = OtgText,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(1f)
-        )
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = OtgAccent,
-                uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = OtgSurface2
-            )
-        )
-    }
-    HorizontalDivider(color = OtgHairline, thickness = 0.5.dp)
-}

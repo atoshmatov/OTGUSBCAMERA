@@ -31,10 +31,7 @@ import uz.toshmatov.strem_lib.StreamService
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModel()
-    private val settingsViewModel: SettingsViewModel by viewModel()
-
     private var mService: StreamService? by mutableStateOf(null)
-
     private var isServiceBound = false
     private var hasPermissions = false
 
@@ -106,13 +103,10 @@ class MainActivity : ComponentActivity() {
         if (!hasPermissions) requestAllPermissions()
 
         setContent {
-            val navController = rememberNavController()
+
             OTGUSBCAMERATheme {
                 AppNavHost(
-                    navController = navController,
-                    mainViewModel = viewModel,
                     mService = mService,
-                    settingsViewModel = settingsViewModel,
                     onStartService = {
                         if (hasPermissions && !isServiceBound) startAndBindService()
                     }

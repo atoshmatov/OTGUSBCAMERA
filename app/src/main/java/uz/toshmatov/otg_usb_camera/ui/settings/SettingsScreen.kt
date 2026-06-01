@@ -29,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.koin.androidx.compose.koinViewModel
+import uz.toshmatov.otg_usb_camera.ui.main.MainViewModel
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgBg
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgHairline
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgSurface
@@ -39,9 +41,9 @@ import uz.toshmatov.otg_usb_camera.ui.theme.OtgTextMute
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    viewModel: SettingsViewModel,
     onBack: () -> Unit
 ) {
+    val viewModel = koinViewModel<SettingsViewModel>()
     Scaffold(
         topBar = {
             TopAppBar(
