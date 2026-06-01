@@ -6,6 +6,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.usb.UsbDevice
 import android.os.Binder
 import android.os.Build
@@ -385,12 +386,20 @@ class StreamService : Service() {
                 return false
             }
 
+            // Foydalanuvchi CameraSelectScreen da tanlagan facing preference ni o'qish
+            val preferredFacing = getSharedPreferences("stream_prefs", MODE_PRIVATE)
+                .getInt("preferred_facing", CameraCharacteristics.LENS_FACING_BACK)
+            val primary = if (preferredFacing == CameraCharacteristics.LENS_FACING_FRONT)
+                CameraHelper.Facing.FRONT else CameraHelper.Facing.BACK
+            val fallback = if (primary == CameraHelper.Facing.FRONT)
+                CameraHelper.Facing.BACK else CameraHelper.Facing.FRONT
+
             try {
-                camera2.startPreview(CameraHelper.Facing.BACK)
+                camera2.startPreview(primary)
             } catch (e: Exception) {
-                Log.w(TAG, "BACK camera failed, trying FRONT: ${e.message}")
+                Log.w(TAG, "$primary camera failed, trying $fallback: ${e.message}")
                 try {
-                    camera2.startPreview(CameraHelper.Facing.FRONT)
+                    camera2.startPreview(fallback)
                 } catch (e2: Exception) {
                     Log.e(TAG, "Both cameras failed: ${e2.message}")
                     rtmpCamera2 = null

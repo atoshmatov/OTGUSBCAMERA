@@ -3,6 +3,7 @@ package uz.toshmatov.otg_usb_camera.ui.select
 import android.content.Context
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
+import android.hardware.usb.UsbConstants
 import android.hardware.usb.UsbManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,16 +24,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Usb
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,47 +46,66 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgAccent
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgBg
+import uz.toshmatov.otg_usb_camera.ui.theme.OtgGood
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgHairline
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgHairline2
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgSurface
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgSurface2
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgText
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgTextDim
-import uz.toshmatov.otg_usb_camera.ui.theme.OtgGood
 
 data class CameraDevice(
     val name: String,
     val sub: String,
     val isUsbConnected: Boolean,
-    val icon: ImageVector
+    val icon: ImageVector,
+    /** CameraCharacteristics.LENS_FACING_BACK / FRONT — phone kameralarda, USB da null */
+    val facing: Int? = null
 )
 
-fun detectCameras(context: Context): List<CameraDevice> {
+/**
+ * Qurilmadagi kameralarni aniqlaydi.
+ * USB: faqat UVC (Video Interface Class = 0x0E) qurilmalar.
+ * Phone: Camera2 API orqali barcha ichki kameralar.
+ * IO thread da ishlatish kerak.
+ */
+suspend fun detectCameras(context: Context): List<CameraDevice> = withContext(Dispatchers.IO) {
     val result = mutableListOf<CameraDevice>()
 
-    // USB qurilmalar (UsbManager orqali)
+    // USB kameralar — faqat USB Video Class (UVC) qurilmalar
     val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
     val usbDevices = usbManager?.deviceList?.values ?: emptyList()
-    usbDevices.forEach { device ->
-        result.add(
-            CameraDevice(
-                name = device.productName ?: "USB Device ${device.deviceId}",
-                sub = "VID:${"%04X".format(device.vendorId)} · PID:${"%04X".format(device.productId)} · USB OTG",
-                isUsbConnected = true,
-                icon = Icons.Default.Usb
+    usbDevices
+        .filter { device ->
+            // Qurilmaning kamida bitta interfeysi USB Video Class bo'lishi kerak
+            (0 until device.interfaceCount).any { i ->
+                device.getInterface(i).interfaceClass == UsbConstants.USB_CLASS_VIDEO
+            }
+        }
+        .forEach { device ->
+            result.add(
+                CameraDevice(
+                    name = device.productName ?: "USB Camera ${device.deviceId}",
+                    sub = "VID:${"%04X".format(device.vendorId)} · PID:${
+                        "%04X".format(device.productId)
+                    } · UVC",
+                    isUsbConnected = true,
+                    icon = Icons.Default.Usb,
+                    facing = null
+                )
             )
-        )
-    }
+        }
 
-    // Phone kameralari (Camera2 API orqali)
+    // Phone kameralari — Camera2 API orqali
     try {
         val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
         cameraManager?.cameraIdList?.forEach { id ->
@@ -99,23 +122,33 @@ fun detectCameras(context: Context): List<CameraDevice> {
                     sub = detail,
                     isUsbConnected = false,
                     icon = if (facing == CameraCharacteristics.LENS_FACING_FRONT)
-                        Icons.Default.PhoneAndroid else Icons.Default.Videocam
+                        Icons.Default.PhoneAndroid else Icons.Default.Videocam,
+                    facing = facing
                 )
             )
         }
     } catch (_: Exception) {}
 
-    return result
+    result
 }
 
 @Composable
 fun CameraSelectScreen(
     onBack: () -> Unit,
-    onContinue: () -> Unit
+    onContinue: (selected: CameraDevice?) -> Unit
 ) {
     val context = LocalContext.current
-    var cameras by remember { mutableStateOf(detectCameras(context)) }
+    var cameras by remember { mutableStateOf<List<CameraDevice>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var refreshTick by remember { mutableIntStateOf(0) }
     var selectedIndex by remember { mutableIntStateOf(0) }
+
+    // Async yuklash — main thread bloklanmaydi
+    LaunchedEffect(refreshTick) {
+        isLoading = true
+        cameras = detectCameras(context)
+        isLoading = false
+    }
 
     Column(
         modifier = Modifier
@@ -136,7 +169,11 @@ fun CameraSelectScreen(
                     .clip(RoundedCornerShape(12.dp))
                     .background(OtgSurface2)
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = OtgText)
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = null,
+                    tint = OtgText
+                )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -147,14 +184,15 @@ fun CameraSelectScreen(
                     letterSpacing = (-0.4).sp
                 )
                 Text(
-                    "${cameras.size} qurilma · ${cameras.count { it.isUsbConnected }} USB",
+                    if (isLoading) "Aniqlanmoqda..."
+                    else "${cameras.size} qurilma · ${cameras.count { it.isUsbConnected }} USB",
                     color = OtgTextDim,
                     fontSize = 12.sp
                 )
             }
-            // Refresh button
+            // Refresh
             IconButton(
-                onClick = { cameras = detectCameras(context) },
+                onClick = { refreshTick++ },
                 modifier = Modifier
                     .size(38.dp)
                     .clip(RoundedCornerShape(12.dp))
@@ -164,119 +202,133 @@ fun CameraSelectScreen(
             }
         }
 
-        if (cameras.isEmpty()) {
-            Box(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Usb,
-                        contentDescription = null,
-                        tint = OtgTextDim,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Text(
-                        "Qurilma topilmadi",
-                        color = OtgText,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        "USB kamerani OTG kabel bilan ulang",
-                        color = OtgTextDim,
-                        fontSize = 13.sp
-                    )
+        // Content
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            when {
+                isLoading -> {
+                    CircularProgressIndicator(color = OtgAccent, strokeWidth = 2.dp)
                 }
-            }
-        } else {
-            // Camera list
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                cameras.forEachIndexed { index, cam ->
-                    val isSelected = selectedIndex == index
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(if (isSelected) OtgSurface2 else OtgSurface)
-                            .border(
-                                1.dp,
-                                if (isSelected) OtgHairline2 else Color.Transparent,
-                                RoundedCornerShape(16.dp)
-                            )
-                            .clickable { selectedIndex = index }
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+
+                cameras.isEmpty() -> {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isSelected) OtgSurface2 else OtgBg)
-                                .border(1.dp, OtgHairline, RoundedCornerShape(12.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                cam.icon,
-                                contentDescription = null,
-                                tint = if (cam.isUsbConnected) OtgGood else OtgTextDim,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                cam.name,
-                                color = OtgText,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                letterSpacing = (-0.2).sp
-                            )
-                            Text(
-                                cam.sub,
-                                color = OtgTextDim,
-                                fontSize = 12.sp
-                            )
-                        }
-                        // USB ulangan badge
-                        if (cam.isUsbConnected) {
-                            Box(
+                        Icon(
+                            Icons.Default.Usb,
+                            contentDescription = null,
+                            tint = OtgTextDim,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text(
+                            "Qurilma topilmadi",
+                            color = OtgText,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "USB kamerani OTG kabel bilan ulang",
+                            color = OtgTextDim,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+
+                else -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        cameras.forEachIndexed { index, cam ->
+                            val isSelected = selectedIndex == index
+                            Row(
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(OtgGood.copy(alpha = 0.15f))
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(if (isSelected) OtgSurface2 else OtgSurface)
+                                    .border(
+                                        1.dp,
+                                        if (isSelected) OtgHairline2 else Color.Transparent,
+                                        RoundedCornerShape(16.dp)
+                                    )
+                                    .clickable { selectedIndex = index }
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
-                                Text("USB", color = OtgGood, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        // Radio
-                        Box(
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clip(CircleShape)
-                                .background(if (isSelected) OtgAccent else Color.Transparent)
-                                .border(
-                                    1.5.dp,
-                                    if (isSelected) OtgAccent else OtgHairline2,
-                                    CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (isSelected) {
                                 Box(
                                     modifier = Modifier
-                                        .size(6.dp)
+                                        .size(44.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isSelected) OtgSurface2 else OtgBg)
+                                        .border(1.dp, OtgHairline, RoundedCornerShape(12.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        cam.icon,
+                                        contentDescription = null,
+                                        tint = if (cam.isUsbConnected) OtgGood else OtgTextDim,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        cam.name,
+                                        color = OtgText,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        letterSpacing = (-0.2).sp
+                                    )
+                                    Text(
+                                        cam.sub,
+                                        color = OtgTextDim,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                if (cam.isUsbConnected) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(OtgGood.copy(alpha = 0.15f))
+                                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                                    ) {
+                                        Text(
+                                            "USB",
+                                            color = OtgGood,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                                // Radio button
+                                Box(
+                                    modifier = Modifier
+                                        .size(18.dp)
                                         .clip(CircleShape)
-                                        .background(Color.White)
-                                )
+                                        .background(if (isSelected) OtgAccent else Color.Transparent)
+                                        .border(
+                                            1.5.dp,
+                                            if (isSelected) OtgAccent else OtgHairline2,
+                                            CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isSelected) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .clip(CircleShape)
+                                                .background(Color.White)
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -287,20 +339,27 @@ fun CameraSelectScreen(
         // Bottom button
         Box(modifier = Modifier.padding(16.dp)) {
             Button(
-                onClick = onContinue,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
+                onClick = { onContinue(cameras.getOrNull(selectedIndex)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = OtgText,
                     contentColor = Color.Black
                 )
             ) {
-                Text("Davom etish", fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.2).sp)
+                Text(
+                    "Davom etish",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.2).sp
+                )
                 Spacer(Modifier.width(6.dp))
                 Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
+                    Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = 180f }
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }

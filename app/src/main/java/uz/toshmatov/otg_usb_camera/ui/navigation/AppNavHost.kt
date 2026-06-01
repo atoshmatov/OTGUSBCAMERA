@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.hardware.camera2.CameraCharacteristics
 import android.hardware.usb.UsbManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -13,6 +14,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.edit
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -83,9 +85,17 @@ fun AppNavHost(
             )
         }
         composable(Screen.CameraSelect.route) {
+            val context = LocalContext.current
             CameraSelectScreen(
                 onBack = { navController.popBackStack() },
-                onContinue = {
+                onContinue = { selectedCamera ->
+                    // Phone kamera tanlansa — facing preference ni saqlash
+                    // StreamService startPhoneCameraStream() da shu preference'ga qaraydi
+                    if (selectedCamera != null && !selectedCamera.isUsbConnected && selectedCamera.facing != null) {
+                        context.getSharedPreferences("stream_prefs", Context.MODE_PRIVATE).edit {
+                            putInt("preferred_facing", selectedCamera.facing)
+                        }
+                    }
                     navController.navigate(Screen.LivePreview.route) {
                         popUpTo(Screen.CameraSelect.route) { inclusive = true }
                     }
