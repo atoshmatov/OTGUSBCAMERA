@@ -1,10 +1,5 @@
 package uz.toshmatov.otg_usb_camera.ui.select
 
-import android.content.Context
-import android.hardware.camera2.CameraCharacteristics
-import android.hardware.camera2.CameraManager
-import android.hardware.usb.UsbConstants
-import android.hardware.usb.UsbManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,10 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Usb
-import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -46,14 +39,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import uz.toshmatov.otg_usb_camera.ui.select.model.CameraDevice
+import uz.toshmatov.otg_usb_camera.ui.select.util.detectCameras
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgAccent
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgBg
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgGood
@@ -63,65 +54,7 @@ import uz.toshmatov.otg_usb_camera.ui.theme.OtgSurface
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgSurface2
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgText
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgTextDim
-/**
- * Qurilmadagi kameralarni aniqlaydi.
- * USB: faqat UVC (Video Interface Class = 0x0E) qurilmalar.
- * Phone: Camera2 API orqali barcha ichki kameralar.
- * IO thread da ishlatish kerak.
- */
-private suspend fun detectCameras(context: Context): List<CameraDevice> = withContext(Dispatchers.IO) {
-    val result = mutableListOf<CameraDevice>()
 
-    // USB kameralar — faqat USB Video Class (UVC) qurilmalar
-    val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
-    val usbDevices = usbManager?.deviceList?.values ?: emptyList()
-    usbDevices
-        .filter { device ->
-            // Qurilmaning kamida bitta interfeysi USB Video Class bo'lishi kerak
-            (0 until device.interfaceCount).any { i ->
-                device.getInterface(i).interfaceClass == UsbConstants.USB_CLASS_VIDEO
-            }
-        }
-        .forEach { device ->
-            result.add(
-                CameraDevice(
-                    name = device.productName ?: "USB Camera ${device.deviceId}",
-                    sub = "VID:${"%04X".format(device.vendorId)} · PID:${
-                        "%04X".format(device.productId)
-                    } · UVC",
-                    isUsbConnected = true,
-                    icon = Icons.Default.Usb,
-                    facing = null
-                )
-            )
-        }
-
-    // Phone kameralari — Camera2 API orqali
-    try {
-        val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as? CameraManager
-        cameraManager?.cameraIdList?.forEach { id ->
-            val chars = cameraManager.getCameraCharacteristics(id)
-            val facing = chars.get(CameraCharacteristics.LENS_FACING)
-            val (label, detail) = when (facing) {
-                CameraCharacteristics.LENS_FACING_BACK -> "Phone Back Camera" to "Internal · Main"
-                CameraCharacteristics.LENS_FACING_FRONT -> "Phone Front Camera" to "Internal · Selfie"
-                else -> "Camera $id" to "Internal"
-            }
-            result.add(
-                CameraDevice(
-                    name = label,
-                    sub = detail,
-                    isUsbConnected = false,
-                    icon = if (facing == CameraCharacteristics.LENS_FACING_FRONT)
-                        Icons.Default.PhoneAndroid else Icons.Default.Videocam,
-                    facing = facing
-                )
-            )
-        }
-    } catch (_: Exception) {}
-
-    result
-}
 
 @Composable
 fun CameraSelectScreen(

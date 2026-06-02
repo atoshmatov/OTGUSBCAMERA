@@ -43,13 +43,11 @@ fun AppNavHost(
             val context = LocalContext.current
             var usbDetected by remember { mutableStateOf(false) }
 
-            // Initial check — app ochilganda allaqachon ulangan USB camera bor-yo'qligini tekshirish
             LaunchedEffect(Unit) {
                 val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
                 usbDetected = usbManager.deviceList.isNotEmpty()
             }
 
-            // BroadcastReceiver — USB ulanish hodisasini tinglash
             DisposableEffect(Unit) {
                 val receiver = object : BroadcastReceiver() {
                     override fun onReceive(ctx: Context, intent: Intent) {
@@ -63,7 +61,6 @@ fun AppNavHost(
                 onDispose { context.unregisterReceiver(receiver) }
             }
 
-            // USB topilganda 600ms kutib avtomatik LivePreview'ga o'tish
             LaunchedEffect(usbDetected) {
                 if (usbDetected) {
                     delay(600)
@@ -87,8 +84,6 @@ fun AppNavHost(
             CameraSelectScreen(
                 onBack = { navController.popBackStack() },
                 onContinue = { selectedCamera ->
-                    // Phone kamera tanlansa — facing preference ni saqlash
-                    // StreamService startPhoneCameraStream() da shu preference'ga qaraydi
                     if (selectedCamera != null && !selectedCamera.isUsbConnected && selectedCamera.facing != null) {
                         context.getSharedPreferences("stream_settings", Context.MODE_PRIVATE).edit {
                             putInt("preferred_facing", selectedCamera.facing)
@@ -101,7 +96,6 @@ fun AppNavHost(
             )
         }
         composable(Screen.LivePreview.route) {
-            // Service faqat shu ekranga kirganda boshlanadi
             LaunchedEffect(Unit) {
                 onStartService()
             }

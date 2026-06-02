@@ -3,10 +3,8 @@ package uz.toshmatov.otg_usb_camera.ui.settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -30,13 +28,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.koin.androidx.compose.koinViewModel
-import uz.toshmatov.otg_usb_camera.ui.main.MainViewModel
+import uz.toshmatov.otg_usb_camera.ui.settings.component.SettingsInfoRow
+import uz.toshmatov.otg_usb_camera.ui.settings.component.SettingsSectionTitle
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgBg
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgHairline
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgSurface
 import uz.toshmatov.otg_usb_camera.ui.theme.OtgText
-import uz.toshmatov.otg_usb_camera.ui.theme.OtgTextDim
-import uz.toshmatov.otg_usb_camera.ui.theme.OtgTextMute
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -107,28 +104,5 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
         }
-    }
-}
-
-@Composable
-private fun SettingsSectionTitle(title: String) {
-    Text(
-        text = title.uppercase(),
-        color = OtgTextMute,
-        fontSize = 10.sp,
-        letterSpacing = 1.5.sp,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
-    )
-}
-
-@Composable
-private fun SettingsInfoRow(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, color = OtgTextDim, fontSize = 14.sp)
-        Text(value, color = OtgText, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }

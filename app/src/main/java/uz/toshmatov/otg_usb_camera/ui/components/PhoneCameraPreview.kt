@@ -70,7 +70,6 @@ fun PhoneCameraPreview(
                 )
             }
         }
-        // Label olib tashlandi
     }
 
     DisposableEffect(Unit) {
